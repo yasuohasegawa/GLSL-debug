@@ -5,16 +5,21 @@ var canvas;
 var context;
 
 var time = 0;
-var w = 100;
-var h = 100;
+var w = 300;
+var h = 300;
 var resolution = new Vec2(w,h);
 var size = w*h;
+var imgData;
+var canvasBuffer;
 
 function init()
 {
 	canvas = document.getElementById("cv");
 	context = canvas.getContext('2d');
-	context.scale(5.0,5.0);
+
+	imgData = context.createImageData(w, h)
+	canvasBuffer = imgData.data;
+
 	requestAnimationFrame(Delegate.create(this, update));
 }
 
@@ -30,17 +35,38 @@ function update()
 				p.x = p.x - 0.5;
 				p.y = p.y - 0.5;
 				
-				var u = Math.abs(Math.sin((Math.atan2(p.y, p.x) - GLSLDebugFunc.length(p) + time) * 10.0) * 0.1) + 0.1;
-				var r = 0.03 / Math.abs(u - GLSLDebugFunc.length(p) * 0.3);
-				var g = 0.04 / Math.abs(u - GLSLDebugFunc.length(p) * 0.5);
-				var b = 0.05 / Math.abs(u - GLSLDebugFunc.length(p) * 0.7);
+				p.x *= resolution.x/resolution.y;
+				var p2 = p;
+				var c = GLSLDebugFunc.length(p2);
+				for (var i = 0; i < 2; i++) {
+					var d = GLSLDebugFunc.length(p2);
+					var r = Math.atan2(p2.x,p2.y);
+					var dt = (time*0.5)-d;
+					d = 1.02 / d *  Math.sin(dt) *  Math.cos(dt) * 3.0;
 
-				context.fillStyle ="rgb(" + Math.floor(r/1*256) + "," + Math.floor(g/1*256) + "," + Math.floor(b/1*256) +")";
+					// some effective matrix rotation		
+					var sc = new Vec2(Math.sin(r+d+time), Math.cos(r+d+time));
+
+					p2 = new Vec2(sc.y*p2.x + sc.x*p2.y, -sc.x*p2.x + sc.y*p2.y);
+					p2 = new Vec2(Math.abs(p2.x),Math.abs(p2.y));
+					p2.x -= c;
+					p2.y -= c;
+					c += Math.sin(Number(i) + GLSLDebugFunc.length(p))*GLSLDebugFunc.length(p2);
+				}
+				var cst = Math.pow(c, 1.2)*(1.0/time)*10.0;
+				var cs = new Vec3((Math.cos(cst+time)),(Math.cos(cst+time+4.0)),(Math.cos(cst+time+2.0)));
 				
-				context.fillRect(xx,yy,1,1);
+				var r = Math.abs(c*cs.x)/1*255;
+				var g = Math.abs(c*cs.y)/1*255;
+				var b = Math.abs(c*cs.z)/1*255;
+
+				canvasBuffer[yy * 4 + xx * w * 4]     = Math.floor(r);
+				canvasBuffer[1 + yy * 4 + xx * w * 4] = Math.floor(g);
+				canvasBuffer[2 + yy * 4 + xx * w * 4] = Math.floor(b);
+				canvasBuffer[3 + yy * 4 + xx * w * 4] = 255;
 			}
 		}
-
+		context.putImageData(imgData, 0, 0);
 		time += 0.05;
 	}
 	requestAnimationFrame(Delegate.create(this, update));
